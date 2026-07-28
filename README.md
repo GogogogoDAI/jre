@@ -47,10 +47,8 @@
 
 项目提供交互式安装脚本 `install.sh`，可自动完成环境配置与服务部署。
 
-#### 下载后本地执行（支持交互输入）
-
 ```bash
-# 下载脚本
+# 下载并运行脚本（支持交互输入）
 wget https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh
 chmod +x install.sh
 sudo bash install.sh
