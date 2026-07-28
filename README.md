@@ -41,40 +41,67 @@
 
 - Python 3.7+
 - `psutil`（仅 Agent 需要）
+- 推荐系统：Ubuntu 18.04+ / Debian 10+ / CentOS 7+ / Rocky Linux 8+
 
-### 一键安装 (推荐)
+### 交互式安装脚本 (推荐)
 
-项目提供了一键安装脚本 `install.sh`，可在全新 Linux 服务器上自动部署服务端或 Agent，无需手动配置。
+项目提供 `install.sh` 脚本，支持交互式菜单，自动完成环境配置与服务部署。
 
-#### 安装服务端
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/yourname/cluster-monitor/main/install.sh | bash -s server
-```
-
-#### 安装 Agent
+#### 远程执行（无需下载）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourname/cluster-monitor/main/install.sh | bash -s agent --server 192.168.1.100:8000
+curl -fsSL https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh | bash
 ```
 
-将 `192.168.1.100:8000` 替换为你的服务端地址。
-
-**自定义参数：**
+#### 下载后本地执行
 
 ```bash
-# 指定节点名称和采集间隔
-curl -fsSL https://.../install.sh | bash -s agent --server 192.168.1.100:8000 --name web-01 --interval 5
+wget https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh
+chmod +x install.sh
+sudo bash install.sh
 ```
 
-脚本会自动完成 Python 环境检测、依赖安装、文件下载、systemd 服务创建及启动。
+运行后将显示菜单：
+
+```
+========================================
+   ClusterMonitor 一键安装脚本
+   GitHub: GogogogoDAI/Server_Probe
+========================================
+
+  请选择安装类型:
+
+  [1] 安装服务端 (Server)
+  [2] 安装探针 (Agent)
+  [3] 安装服务端 + 探针 (All in One)
+  [4] 仅下载文件（手动配置）
+  [5] 卸载
+  [0] 退出
+
+请输入选项 [1-5]:
+```
+
+根据提示选择对应的安装类型，脚本将引导完成配置并自动启动服务。
+
+#### 命令行快捷安装
+
+```bash
+# 直接安装服务端（跳过交互菜单）
+curl -fsSL https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh | bash -s -- --server
+
+# 直接安装 Agent（跳过交互菜单）
+curl -fsSL https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh | bash -s -- --agent
+
+# 卸载
+curl -fsSL https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh | bash -s -- --uninstall
+```
 
 ### 手动安装
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourname/cluster-monitor.git
-cd cluster-monitor
+git clone https://github.com/GogogogoDAI/Server_Probe.git
+cd Server_Probe
 
 # 安装依赖（仅Agent需要）
 pip install psutil
@@ -120,24 +147,31 @@ python3 agent.py --status
 python3 agent.py --stop
 ```
 
-### 一键脚本参数说明 (install.sh)
+### 安装后管理
 
-| 参数 | 必填 | 说明 | 示例 |
-|------|------|------|------|
-| `server` | 二选一 | 安装服务端 | `bash install.sh server` |
-| `agent` | 二选一 | 安装 Agent | `bash install.sh agent --server ...` |
-| `--server` | Agent 必填 | 服务端地址 | `--server 192.168.1.100:8000` |
-| `--name` | 可选 | 节点名称（默认主机名） | `--name web-01` |
-| `--interval` | 可选 | 采集间隔秒数（默认 10） | `--interval 5` |
+```bash
+# 查看服务状态
+systemctl status cluster-monitor    # 服务端
+systemctl status cluster-agent      # Agent
+
+# 启动/停止/重启
+systemctl start cluster-monitor
+systemctl stop cluster-monitor
+systemctl restart cluster-monitor
+
+# 查看日志
+journalctl -u cluster-monitor -f
+journalctl -u cluster-agent -f
+```
 
 ## 📁 项目结构
 
 ```
-cluster-monitor/
+Server_Probe/
 ├── server.py          # 服务端（纯标准库）
 ├── agent.py           # Agent探针（依赖psutil）
 ├── dashboard.html     # Web管理面板
-├── install.sh         # 一键安装脚本
+├── install.sh         # 交互式安装脚本
 ├── config.json        # 服务端配置文件（自动生成）
 ├── agent_config.json  # Agent配置文件（自动生成）
 ├── cluster.db         # SQLite数据库（自动生成）
@@ -242,6 +276,14 @@ CPU使用率: 95% (阈值: 90%)
 | `--show-config` | 显示当前配置 |
 | `--skip-check` | 跳过节点ID冲突检测 |
 
+### install.sh
+
+| 参数 | 说明 |
+|------|------|
+| `--server` | 直接安装服务端（跳过交互菜单） |
+| `--agent` | 直接安装 Agent（跳过交互菜单） |
+| `--uninstall` | 卸载 ClusterMonitor |
+
 ## 🔧 API 接口
 
 | 方法 | 路径 | 说明 |
@@ -287,7 +329,7 @@ docker run -d --name cluster-agent \
 - 守护进程模式
 - 节点重命名
 - 告警保留策略
-- 一键安装脚本
+- 交互式安装脚本
 
 ## 🤝 贡献
 
