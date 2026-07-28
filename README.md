@@ -43,19 +43,14 @@
 - `psutil`（仅 Agent 需要）
 - 推荐系统：Ubuntu 18.04+ / Debian 10+ / CentOS 7+ / Rocky Linux 8+
 
-### 交互式安装脚本 (推荐)
+### 下载并执行安装脚本
 
-项目提供 `install.sh` 脚本，支持交互式菜单，自动完成环境配置与服务部署。
+项目提供交互式安装脚本 `install.sh`，可自动完成环境配置与服务部署。
 
-#### 远程执行（无需下载）
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh | bash
-```
-
-#### 下载后本地执行
+#### 下载后本地执行（支持交互输入）
 
 ```bash
+# 下载脚本
 wget https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh
 chmod +x install.sh
 sudo bash install.sh
@@ -83,17 +78,17 @@ sudo bash install.sh
 
 根据提示选择对应的安装类型，脚本将引导完成配置并自动启动服务。
 
-#### 命令行快捷安装
+#### 命令行快捷安装（跳过菜单，仍需交互配置）
 
 ```bash
-# 直接安装服务端（跳过交互菜单）
-curl -fsSL https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh | bash -s -- --server
+# 直接安装服务端
+sudo bash install.sh --server
 
-# 直接安装 Agent（跳过交互菜单）
-curl -fsSL https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh | bash -s -- --agent
+# 直接安装 Agent
+sudo bash install.sh --agent
 
 # 卸载
-curl -fsSL https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/install.sh | bash -s -- --uninstall
+sudo bash install.sh --uninstall
 ```
 
 ### 手动安装
@@ -280,8 +275,8 @@ CPU使用率: 95% (阈值: 90%)
 
 | 参数 | 说明 |
 |------|------|
-| `--server` | 直接安装服务端（跳过交互菜单） |
-| `--agent` | 直接安装 Agent（跳过交互菜单） |
+| `--server` | 直接安装服务端（跳过菜单） |
+| `--agent` | 直接安装 Agent（跳过菜单） |
 | `--uninstall` | 卸载 ClusterMonitor |
 
 ## 🔧 API 接口
