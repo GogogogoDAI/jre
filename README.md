@@ -8,7 +8,7 @@
 
 一个极简的集群服务器监控系统，使用 Python 标准库开发，仅依赖 `psutil`。支持 CPU、内存、磁盘、温度、网络监控，NTFY 实时告警推送，Web 管理面板。
 
-![Dashboard](https://via.placeholder.com/800x400/0d1117/58a6ff?text=ClusterMonitor+Dashboard)
+![Dashboard](https://raw.githubusercontent.com/GogogogoDAI/Server_Probe/main/server_probe.PNG)
 
 ## ✨ 特性
 
