@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # =========================================================
-#  Debian 12+ BBR v3 一键交互式安装脚本 (基于 XanMod 内核)
+#  Debian 12+ BBR v3 一键安装与修复交互脚本 (XanMod)
 # =========================================================
 
 RED='\033[0;31m'
@@ -9,7 +9,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 PLAIN='\033[0m'
 
-# 检查是否为 Root 用户
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         echo -e "${RED}错误：必须使用 root 权限运行此脚本！${PLAIN}"
@@ -17,7 +16,6 @@ check_root() {
     fi
 }
 
-# 检查系统与虚拟化支持
 check_sys() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -28,7 +26,6 @@ check_sys() {
         fi
     fi
 
-    # 虚拟化架构检测
     if command -v systemd-detect-virt >/dev/null 2>&1; then
         VIRT=$(systemd-detect-virt)
         if [[ "$VIRT" == "openvz" || "$VIRT" == "lxc" ]]; then
@@ -38,7 +35,6 @@ check_sys() {
     fi
 }
 
-# CPU x86-64 微架构等级检测
 detect_cpu_level() {
     local flags
     flags=$(cat /proc/cpuinfo)
@@ -56,7 +52,6 @@ detect_cpu_level() {
     echo "$level"
 }
 
-# 配置 sysctl 开启 BBR
 enable_bbr_sysctl() {
     echo -e "${GREEN}==> 正在写入 sysctl 配置...${PLAIN}"
     sed -i '/net.core.default_qdisc/d' /etc/sysctl.conf
@@ -70,7 +65,6 @@ EOF
     echo -e "${GREEN}==> BBR 配置写入成功。${PLAIN}"
 }
 
-# 刷新 GRUB 引导
 update_grub_config() {
     echo -e "${GREEN}==> 正在更新 GRUB 启动配置文件...${PLAIN}"
     if [ -f /etc/default/grub ]; then
@@ -80,13 +74,60 @@ update_grub_config() {
     echo -e "${GREEN}==> GRUB 引导项更新完成。${PLAIN}"
 }
 
-# 模式 1：直连官方 DEB 安装（推荐，解决 APT 源 Release 报错）
+# 模式 1：修复后的 APT 源安装
+install_apt_repo() {
+    echo -e "${GREEN}==> 清理旧版 XanMod 配置文件...${PLAIN}"
+    rm -f /etc/apt/sources.list.d/xanmod*.list
+
+    echo -e "${GREEN}==> 安装密钥与依赖项...${PLAIN}"
+    apt-get update -y && apt-get install -y ca-certificates curl gnupg lsb-release
+
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes
+
+    # 获取系统版本代号 (Debian 12 -> bookworm)
+    local codename
+    codename=$(lsb_release -sc 2>/dev/null || echo "bookworm")
+
+    echo -e "${GREEN}==> 写入修正后的 XanMod APT 软件源 (代号: ${codename})...${PLAIN}"
+    echo "deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org ${codename} main" | tee /etc/apt/sources.list.d/xanmod-release.list
+
+    if ! apt-get update -y; then
+        echo -e "${YELLOW}APT 软件源更新失败，自动切换至模式 2（离线 DEB 包直连安装）...${PLAIN}"
+        sleep 2
+        install_deb_direct
+        return
+    fi
+
+    local auto_level
+    auto_level=$(detect_cpu_level)
+
+    echo -e "${YELLOW}检测到的 CPU 推荐等级: v${auto_level}${PLAIN}"
+    read -rp "选择微架构版本 [1-4] (KVM VPS 强烈建议选 1, 默认 1): " pkg_choice
+    pkg_choice=${pkg_choice:-1}
+
+    local pkg="linux-xanmod-x64v${pkg_choice}"
+    echo -e "${GREEN}==> 正在通过 APT 安装 ${pkg} ...${PLAIN}"
+    apt-get install -y "$pkg" || { echo -e "${RED}安装失败！${PLAIN}"; return; }
+
+    enable_bbr_sysctl
+    update_grub_config
+
+    echo -e "${GREEN}=====================================================${PLAIN}"
+    echo -e "${GREEN} XanMod (BBRv3) 内核安装完成！${PLAIN}"
+    echo -e "${GREEN}=====================================================${PLAIN}"
+    read -rp "是否立即重启系统？(y/n): " reboot_now
+    if [[ "$reboot_now" == "y" || "$reboot_now" == "Y" ]]; then
+        reboot
+    fi
+}
+
+# 模式 2：离线 DEB 直连安装 (彻底避开 APT 404 报错)
 install_deb_direct() {
     local auto_level
     auto_level=$(detect_cpu_level)
 
     echo -e "${YELLOW}当前检测到的 CPU 架构等级为: v${auto_level}${PLAIN}"
-    echo "提示：KVM 云服务器/VPS 建议优先选择 1 (x64v1) 获得最佳兼容性。"
     echo "1) linux-xanmod-x64v1 (通用推荐，适用于绝大部分 VPS)"
     echo "2) linux-xanmod-x64v2"
     echo "3) linux-xanmod-x64v3"
@@ -135,49 +176,6 @@ install_deb_direct() {
     fi
 }
 
-# 模式 2：使用官方 APT 源安装
-install_apt_repo() {
-    echo -e "${GREEN}==> 清理旧版 XanMod 配置文件...${PLAIN}"
-    rm -f /etc/apt/sources.list.d/xanmod*.list
-
-    echo -e "${GREEN}==> 安装密钥与依赖项...${PLAIN}"
-    apt-get update -y && apt-get install -y ca-certificates curl gnupg lsb-release
-
-    mkdir -p /etc/apt/keyrings
-    curl -fsSL https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes
-
-    echo -e "${GREEN}==> 写入修补后的 XanMod APT 软件源...${PLAIN}"
-    echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | tee /etc/apt/sources.list.d/xanmod-release.list
-
-    if ! apt-get update -y; then
-        echo -e "${RED}APT 软件源更新失败，请退回主菜单选择选项 1（直连 DEB 包安装）。${PLAIN}"
-        read -rp "按回车键返回主菜单..."
-        return
-    fi
-
-    local auto_level
-    auto_level=$(detect_cpu_level)
-
-    read -rp "选择微架构版本 [1-4] (推荐 1 以保障 compatibility, 默认 1): " pkg_choice
-    pkg_choice=${pkg_choice:-1}
-
-    local pkg="linux-xanmod-x64v${pkg_choice}"
-    echo -e "${GREEN}==> 正在通过 APT 安装 ${pkg} ...${PLAIN}"
-    apt-get install -y "$pkg" || { echo -e "${RED}安装失败！${PLAIN}"; return; }
-
-    enable_bbr_sysctl
-    update_grub_config
-
-    echo -e "${GREEN}=====================================================${PLAIN}"
-    echo -e "${GREEN} XanMod (BBRv3) 内核安装完成！${PLAIN}"
-    echo -e "${GREEN}=====================================================${PLAIN}"
-    read -rp "是否立即重启系统？(y/n): " reboot_now
-    if [[ "$reboot_now" == "y" || "$reboot_now" == "Y" ]]; then
-        reboot
-    fi
-}
-
-# 状态检测
 check_status() {
     echo -e "\n${GREEN}=== 系统内核与 BBR 运行状态 ===${PLAIN}"
     local kernel_ver
@@ -207,15 +205,14 @@ check_status() {
     read -rp "按回车键返回主菜单..."
 }
 
-# 主菜单
 show_menu() {
     while true; do
         clear
         echo -e "${GREEN}=====================================================${PLAIN}"
         echo -e "${GREEN}   Debian 12+ XanMod (BBR v3) 一键安装交互脚本      ${PLAIN}"
         echo -e "${GREEN}=====================================================${PLAIN}"
-        echo -e " 1. 直连下载安装 XanMod DEB 包 (推荐: 彻底避开 APT 报错)"
-        echo -e " 2. 使用官方 APT 软件源安装"
+        echo -e " 1. 使用修正后的 XanMod APT 软件源安装"
+        echo -e " 2. 直连下载安装 XanMod DEB 包 (自动兜底/无视源报错)"
         echo -e " 3. 开启/重置 BBR 及 FQ 系统参数"
         echo -e " 4. 强制刷新 GRUB 引导项 (解决重启未生效问题)"
         echo -e " 5. 查看系统内核与 BBR 运行状态"
@@ -226,12 +223,12 @@ show_menu() {
             1)
                 check_root
                 check_sys
-                install_deb_direct
+                install_apt_repo
                 ;;
             2)
                 check_root
                 check_sys
-                install_apt_repo
+                install_deb_direct
                 ;;
             3)
                 check_root
